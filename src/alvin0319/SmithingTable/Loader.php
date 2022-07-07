@@ -85,11 +85,12 @@ final class Loader extends PluginBase {
 				}
 			}
 
-			$executeTransaction = function ($actions) use ($session, $invManager): void {
+			$executeTransaction = function ($actions) use ($session, $invManager): bool {
 				$transaction = new InventoryTransaction($session->getPlayer(), $actions);
 				$invManager->onTransactionStart($transaction);
 				try {
 					$transaction->execute();
+					return true;
 				} catch (TransactionException $e) {
 					$logger = $session->getLogger();
 					$logger->debug("Failed to execute inventory transaction: ".$e->getMessage());
@@ -100,6 +101,7 @@ final class Loader extends PluginBase {
 					}
 //					var_dump($e->getMessage());
 //					var_dump($e->getTraceAsString());
+					return false;
 				}
 			};
 
@@ -117,7 +119,11 @@ final class Loader extends PluginBase {
 					}
 					$executeTransaction($firstActions);
 //					var_dump($this->transactionInventory[$session->getPlayer()->getXuid()]->getItem(2));
-					if (count($secondActions) > 0) $executeTransaction($secondActions); // final transaction의 첫번째 패킷은 "제련대 결과 템"을 옮기는 action이 없음
+					if (count($secondActions) > 0) {
+						if ($executeTransaction($secondActions)) {
+							$this->transactionInventory[$session->getPlayer()->getXuid()]->clearAll(); // 네더 템 빼기 성공하면, 재료템 삭제하기
+						}
+					} // final transaction의 첫번째 패킷은 "제련대 결과 템"을 옮기는 action이 없음
 				} else {
 					$executeTransaction($actions);
 				}
