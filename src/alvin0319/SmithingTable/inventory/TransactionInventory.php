@@ -20,6 +20,7 @@ final class TransactionInventory extends SimpleInventory{
 			($output = Loader::getInstance()->getRecipe(parent::getItem(0), parent::getItem(1))) !== null
 		){
 			$output->setNamedTag(parent::getItem(0)->getNamedTag());
+			return $output;
 		}
 
 		return parent::getItem($index);

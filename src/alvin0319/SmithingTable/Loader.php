@@ -128,8 +128,10 @@ final class Loader extends PluginBase{
 
 			if($isSmithingTableTransaction && count($actions) > 0){
 				if($isFinalTransaction){
+					$isFailed = false;
 					$firstActions = []; // 기존의 제련대 템(다이아 헬멧, 네더 주괴)을 옮기는 action을 먼저 처리
 					$secondActions = []; // 제련대 결과 템(네더 헬멧)을 옮기는 action을 나중에 처리
+					$tempInventory = $this->transactionInventory[$session->getPlayer()->getXuid()];
 					foreach($actions as $_ => $action){
 						$inv = $action->getInventory();
 						if($inv instanceof SmithingTableInventory || ($inv instanceof TransactionInventory && $action->getSlot() < 2)){
@@ -138,12 +140,25 @@ final class Loader extends PluginBase{
 							$secondActions[] = $action;
 						}
 					}
-					$executeTransaction($firstActions);
-					if(count($secondActions) > 0){
+					if(!$executeTransaction($firstActions)){
+						$isFailed = true;
+					}
+					if(count($secondActions) > 0){ // final transaction의 첫번째 패킷은 "제련대 결과 템"을 옮기는 action이 없음
 						if($executeTransaction($secondActions)){
-							$this->transactionInventory[$session->getPlayer()->getXuid()]->clearAll(); // 네더 템 빼기 성공하면, 재료템 삭제하기
+							$tempInventory->clearAll(); // 네더 템 빼기 성공하면, 재료템 삭제하기
+						}else{
+							$isFailed = true;
 						}
-					} // final transaction의 첫번째 패킷은 "제련대 결과 템"을 옮기는 action이 없음
+					}
+					if($isFailed){
+						/** @var SmithingTableInventory $inv */
+						$inv = $invManager->getWindow($invManager->getCurrentWindowId());
+						for($i = 0; $i < 2; $i++){
+							$inv->addItem($tempInventory->getItem($i));
+						}
+						$tempInventory->clearAll();
+						$invManager->syncContents($inv); // is it work for SmithingTableInventory?
+					}
 				}else{
 					$executeTransaction($actions);
 				}
